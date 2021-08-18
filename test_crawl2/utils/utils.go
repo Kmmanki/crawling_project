@@ -21,3 +21,9 @@ func LoadConfig() (PrivateConfig, error) {
 	return config, err
 
 }
+
+func ErrChecker(err error) {
+	if err != nil {
+		log.Fatalln("err: ", err)
+	}
+}
