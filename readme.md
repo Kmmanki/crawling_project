@@ -16,7 +16,12 @@
 1. Go를 사용해서 네이버 블로그의 데이터 가져오기 (현재 진행)
 2. Docker를 이용해 Elastic Search와 kibana 구축 
 
-### Go를 이용한 크롤의 설정
+### Go를 이용한 스크래퍼 설정
 - 크롤은 현재 네이버 블로그만 생각하고 있지만 추후 수집하는 매체가 늘어날 수 있으므로 여러 PC에서 수집할 필요성이 존재(수집을 빠르게 돌리면 사이트에서 ip를 차단하므로 느림)
 - 이러한 문제를 해결하기위해 각 사이트별로 별도의 프로그램을 작성하여 cron을 사용하여 수집. 수집의 로그는 MariaDB에 적재하는 방식으로 수집 내역을 관리
 - HTML Document를 읽기 파싱하기 위한 GoQuery 라이브러리설치 -> go get github.com/PuerkitoBio/goquery
+- naver 블로그 내역을 제공하는 API가 존재하여 API로 블로그 내역을 수집
+    - 제공되는 데이터는 XML과 JSON 타입으로 제공되며 제공되는 데이터의 내역은
+        -title, link, discription, blogername, blogerlink, postdate
+    - title, link, discription, postdate를 사용할 예정
+- 네이버 개발자센터 링크: <https://developers.naver.com/docs/serviceapi/search/blog/blog.md#%EB%B8%94%EB%A1%9C%EA%B7%B8>
