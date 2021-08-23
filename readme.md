@@ -38,19 +38,20 @@ CentOS를 설치하여 Elastic과 kibana를 연동하는 방식으로 진행
 - CentOS 7버전 사용
 
 #### CentOS
-'''
+```
 docker pull centos:7
 
 docker run -d --privileged --name ela_kib -v /sys/fs/cgroup:/sys/fs/cgroup:ro -p 5601:5601 -p 9200:9200 centos:7 /usr/sbin/init
 
 // privileged 옵션, /usr/sbin/init 옵션은 리눅스 내 systemctl을 사용하기 위함
 //9200은 ES 포트, 5601은 Kibana 포트
-'''
+```
 
 
 #### JAVA
 
-'''
+``` 
+
 //yum을 사용하여 설치 가능한 jdk 확인
 yum list java*jdk-devel
 yum install java-11-openjdk-devel.x86_64
@@ -65,11 +66,11 @@ source /etc/profile
 // 반영 되었는지 확인
 echo $JAVA_HOME 
 
-'''
+```
 
 #### ES설치
 
-'''
+```
 // CentOS 최소버전 설치시 wget이 존재하지 않을 수 있다.
 yum install wget
 
@@ -106,4 +107,4 @@ systemctl enable elasticsearch
 systemctl start elasticsearch
 systemctl stop elasticsearch
 systemctl status elasticsearch
-'''
+```
