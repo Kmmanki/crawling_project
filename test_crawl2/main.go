@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"test_crawl2/DTO"
@@ -18,10 +19,9 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-var ApiBaseURL = "https://openapi.naver.com/v1/search/blog?display=3&sort=date&query="
-var start = 0
+var ApiBaseURL = "https://openapi.naver.com/v1/search/blog?display=100&sort=date&query="
+var start = 1
 var keyword = url.QueryEscape("삼성 TV")
-var startPage = 1
 var config utils.PrivateConfig
 var err error
 
@@ -35,27 +35,59 @@ func main() {
 	utils.ErrChecker(err)
 
 	targetList := CallNaverAPI(ApiBaseURL, keyword)
+	fmt.Println(len(targetList))
 
-	crawlBlog(targetList[0])
+	ch := make(chan DTO.Scrap_result)
+	for index, item := range targetList {
+		if index%300 == 0 {
+			time.Sleep(5 * time.Millisecond)
+		}
+		go crawlBlog(item, ch)
+
+	}
+
+	for i := 0; i < len(targetList); i++ {
+		result := <-ch
+
+		var re = regexp.MustCompile(`["']`)
+		result.Content = re.ReplaceAllString(result.Content, ``)
+		result.Title = re.ReplaceAllString(result.Title, ``)
+
+		utils.EsPut(result)
+	}
 
 }
 
-func crawlBlog(target DTO.NaverBlogApiItem) {
+func crawlBlog(target DTO.NaverBlogApiItem, ch chan<- DTO.Scrap_result) {
 	println(target.Link)
 	url := target.Link
+	if !strings.Contains(url, "blog.naver") {
+		return
+	}
 	iframeSrc := getIframeURL(url)
 
 	resp, err := http.Get(blogBaseURL + iframeSrc)
 	utils.ErrChecker(err)
-	statusCodeChecker(resp)
+	statusCodeChecker(resp, "크롤링 블로그", url)
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	defer resp.Body.Close()
 	utils.ErrChecker(err)
 
-	doc.Find(".se-main-container  .se-text-paragraph").Each(func(i int, s *goquery.Selection) {
-		fmt.Println(s.Text())
-	})
+	content := doc.Find(".se-main-container  .se-text-paragraph").Text()
+
+	// 따옴표 제거
+	var re = regexp.MustCompile(`"`)
+	content = re.ReplaceAllString(content, ``)
+	target.Title = re.ReplaceAllString(target.Title, ``)
+
+	// Title과 PostDate를 사용한 해쉬를 사용
+	scrapId := utils.GetMD5Hash(target.Title, target.CustomPostDate.Format("2006-01-02 15:04:05"))
+	fmt.Println(scrapId)
+
+	ch <- DTO.Scrap_result{Title: target.Title, Link: target.Link, Content: content,
+		CustomPostDate: target.CustomPostDate,
+		ScrapDate:      time.Now(), ScrapId: scrapId}
 
 }
 
@@ -63,7 +95,7 @@ func getIframeURL(url string) string {
 	var iframeURL string
 	resp, err := http.Get(url)
 	utils.ErrChecker(err)
-	statusCodeChecker(resp)
+	statusCodeChecker(resp, "아이프레임", url)
 
 	// bodyBytes, err := ioutil.ReadAll(resp.Body)
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
@@ -76,23 +108,24 @@ func getIframeURL(url string) string {
 	return strings.Split(iframeURL, " ")[0]
 }
 
-func CallNaverAPI(url string, keyword string) []DTO.NaverBlogApiItem {
+func CallNaverAPI(apiURL string, keyword string) []DTO.NaverBlogApiItem {
 	var targetList []DTO.NaverBlogApiItem
-	threeDaysAgo := time.Now().AddDate(0, 0, -3) //.Format("2006-01-02")
+	onedaysAgo := time.Now().AddDate(0, 0, -1) //.Format("2006-01-02")
 	var bloglist DTO.NaverBlogApiStruct
 	isBreak := false
 
 	for {
 		client := &http.Client{}
 
-		url = url + keyword + "&start=" + strconv.Itoa(startPage)
+		url := apiURL + keyword + "&start=" + strconv.Itoa(start)
 		req, err := http.NewRequest("GET", url, nil)
 		req.Header.Set("X-Naver-Client-Id", config.NaverAPI.ClientCode)
 		req.Header.Set("X-Naver-Client-Secret", config.NaverAPI.SecretCode)
 
 		resp, err := client.Do(req)
 		utils.ErrChecker(err)
-		statusCodeChecker(resp)
+		fmt.Println(url)
+		statusCodeChecker(resp, "네이버 api호출", url)
 
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -101,8 +134,7 @@ func CallNaverAPI(url string, keyword string) []DTO.NaverBlogApiItem {
 		decoder := json.NewDecoder(bytes.NewReader(bodyBytes))
 		err = decoder.Decode(&bloglist)
 		utils.ErrChecker(err)
-
-		fmt.Println("3일전 날짜", threeDaysAgo.Format("2006-01-02"))
+		// fmt.Println("3일전 날짜", threeDaysAgo.Format("2006-01-02"))
 		for i := 0; i < len(bloglist.Items); i++ {
 			strPostDate := bloglist.Items[i].Postdate
 
@@ -113,31 +145,26 @@ func CallNaverAPI(url string, keyword string) []DTO.NaverBlogApiItem {
 
 			bloglist.Items[i].CustomPostDate = postDate
 
-			if postDate.Before(threeDaysAgo) {
+			if postDate.Before(onedaysAgo) {
 				isBreak = true
 			}
 			targetList = append(targetList, bloglist.Items[i])
 		}
-
-		if isBreak || startPage > 2 {
+		time.Sleep(time.Millisecond * 5)
+		fmt.Println(bloglist.Items[0].CustomPostDate.Format("2006-01-02"))
+		if isBreak {
 			break
 		}
-		startPage += 1
+		start += 100
 	}
 
-	// doc, err := goquery.NewDocumentFromReader(resp.Body)
-
-	// errChecker(err)
-	// doc.Find(".\"total_sub\"").Each(func(i int, s *goquery.Selection) {
-	// 	fmt.Println(s.Length())
-	// })
 	return targetList
 
 }
 
-func statusCodeChecker(resp *http.Response) {
+func statusCodeChecker(resp *http.Response, target string, url string) {
 	code := resp.StatusCode
 	if code != 200 {
-		log.Fatalln("StatusCode: ", code)
+		log.Fatalln("StatusCode: ", code, "target :"+target, "url: ", url)
 	}
 }

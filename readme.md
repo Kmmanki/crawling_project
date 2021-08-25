@@ -16,7 +16,9 @@
 1. Go를 사용해서 네이버 블로그의 데이터 가져오기 (현재 진행)
 2. Docker를 이용해 Elastic Search와 kibana 구축 
 
-### Go를 이용한 스크래퍼 설정
+<details>
+<summary> Go를 이용한 스크래퍼 </summary>
+<div markdown=”1”>
 - 크롤은 현재 네이버 블로그만 생각하고 있지만 추후 수집하는 매체가 늘어날 수 있으므로 여러 PC에서 수집할 필요성이 존재(수집을 빠르게 돌리면 사이트에서 ip를 차단하므로 느림)
 - 이러한 문제를 해결하기위해 각 사이트별로 별도의 프로그램을 작성하여 cron을 사용하여 수집. 수집의 로그는 MariaDB에 적재하는 방식으로 수집 내역을 관리
 - HTML Document를 읽기 파싱하기 위한 GoQuery 라이브러리설치 -> go get github.com/PuerkitoBio/goquery
@@ -25,13 +27,15 @@
         -title, link, discription, blogername, blogerlink, postdate
     - title, link, discription, postdate를 사용할 예정
 - 네이버 개발자센터 링크: <https://developers.naver.com/docs/serviceapi/search/blog/blog.md#%EB%B8%94%EB%A1%9C%EA%B7%B8>
+</div>
+</details>
 
+<details>
+<summary> Docker 설정 </summary>
+<div markdown=”1”>
 
-### Docker 설정
 - docker에 Elastic, Kibana를 compose로 역어서 구성하는 방법이 존재 하지만 리눅스 설정과 Elasticsearch 의 설정을 직접 해보고 싶어서 
 CentOS를 설치하여 Elastic과 kibana를 연동하는 방식으로 진행
-
-
 
 - ElasticSearch 7.14.0버전
 - java 11 버전(Elastic 때문에 11버전 사용)
@@ -107,4 +111,32 @@ systemctl enable elasticsearch
 systemctl start elasticsearch
 systemctl stop elasticsearch
 systemctl status elasticsearch
+```
+</div>
+</details>
+
+
+### Kibana설치
+```
+wget https://artifacts.elastic.co/downloads/kibana/kibana-7.14.0-x86_64.rpm
+
+rpm -i kibana-6.2.1-x86_64.rpm
+
+vi /etc/kibana/kibana.yml
+
+// 수정! 주석제거
+server.port: 5601
+server.host: "0.0.0.0"
+elasticsearch.url: "http://localhost:9200"
+
+
+# firewall-cmd --permanent --zone=public --add-port=5601/tcp
+# firewall-cmd --permanent --zone=public --add-service=kibana
+# firewall-cmd --reload
+# firewall-cmd --list-ports
+
+#systemctl status kibana
+#systemctl start kibana
+
+
 ```

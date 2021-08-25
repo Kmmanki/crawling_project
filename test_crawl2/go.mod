@@ -2,4 +2,8 @@ module test_crawl2
 
 go 1.16
 
-require github.com/PuerkitoBio/goquery v1.7.1 // indirect
+require (
+	github.com/PuerkitoBio/goquery v1.7.1 // indirect
+	github.com/elastic/go-elasticsearch/v8 v8.0.0-20210823151005-3b1f3aef208c // indirect
+	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+)
