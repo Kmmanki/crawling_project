@@ -30,12 +30,13 @@ var blogBaseURL = "https://blog.naver.com"
 // var config utils.PrivateConfig
 
 func main() {
+	startTime := time.Now()
 
 	config, err = utils.LoadConfig()
 	utils.ErrChecker(err)
 
 	targetList := CallNaverAPI(ApiBaseURL, keyword)
-	fmt.Println(len(targetList))
+	log.Println("api 추출 개수: ", len(targetList))
 
 	ch := make(chan DTO.Scrap_result)
 	for index, item := range targetList {
@@ -43,29 +44,29 @@ func main() {
 			time.Sleep(5 * time.Millisecond)
 		}
 		go crawlBlog(item, ch)
-
 	}
 
+	putCount := 0
 	for i := 0; i < len(targetList); i++ {
 		result := <-ch
 
-		var re = regexp.MustCompile(`["']`)
-		result.Content = re.ReplaceAllString(result.Content, ``)
-		result.Title = re.ReplaceAllString(result.Title, ``)
+		var re = regexp.MustCompile(`["']`)                      //따옴표가 존재 할 시 Joson 구조 만드는데 문제가 생김 추후 html 태그 등을 처리하는 정규식이 필요해 보임
+		result.Content = re.ReplaceAllString(result.Content, ``) //Content에서 정규식 사용
+		result.Title = re.ReplaceAllString(result.Title, ``)     // Title에서 정규식 사용
 
-		utils.EsPut(result)
+		putCount += utils.EsPut(result)
 	}
 
+	endTime := time.Now()
+	utils.Insert_history(startTime, endTime, putCount, len(targetList))
 }
 
 func crawlBlog(target DTO.NaverBlogApiItem, ch chan<- DTO.Scrap_result) {
-	println(target.Link)
 	url := target.Link
 	if !strings.Contains(url, "blog.naver") {
 		return
 	}
 	iframeSrc := getIframeURL(url)
-
 	resp, err := http.Get(blogBaseURL + iframeSrc)
 	utils.ErrChecker(err)
 	statusCodeChecker(resp, "크롤링 블로그", url)
@@ -74,30 +75,28 @@ func crawlBlog(target DTO.NaverBlogApiItem, ch chan<- DTO.Scrap_result) {
 	defer resp.Body.Close()
 	utils.ErrChecker(err)
 
-	content := doc.Find(".se-main-container  .se-text-paragraph").Text()
+	content := doc.Find(".se-main-container  .se-text-paragraph").Text() // Document에서 Content에 관련된 Class를 찾아내고 Text를 로드
 
-	// 따옴표 제거
-	var re = regexp.MustCompile(`"`)
-	content = re.ReplaceAllString(content, ``)
-	target.Title = re.ReplaceAllString(target.Title, ``)
-
-	// Title과 PostDate를 사용한 해쉬를 사용
+	// Title과 PostDate를 사용한 MD5해쉬를 사용, 추후 엘라스틱에 있는 글이라면 넣지 않는 방향으로 진행 해야함.
 	scrapId := utils.GetMD5Hash(target.Title, target.CustomPostDate.Format("2006-01-02 15:04:05"))
-	fmt.Println(scrapId)
 
+	//채널을 통해 Scrap_result 구조체를 반환
 	ch <- DTO.Scrap_result{Title: target.Title, Link: target.Link, Content: content,
 		CustomPostDate: target.CustomPostDate,
 		ScrapDate:      time.Now(), ScrapId: scrapId}
-
 }
 
+//네이버 블로그는 iframe에 쌓인 형태로 구성되어 있음, 그래서
+//첫째 블로그 url을 가져오고
+//둘째 블로그 내용에서 iframe url을 가져온 뒤
+//셋째 다시 iframe의 url을 호출하여 내용을 추출해야함
 func getIframeURL(url string) string {
 	var iframeURL string
+
 	resp, err := http.Get(url)
 	utils.ErrChecker(err)
 	statusCodeChecker(resp, "아이프레임", url)
 
-	// bodyBytes, err := ioutil.ReadAll(resp.Body)
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	defer resp.Body.Close()
 	utils.ErrChecker(err)
@@ -109,6 +108,8 @@ func getIframeURL(url string) string {
 }
 
 func CallNaverAPI(apiURL string, keyword string) []DTO.NaverBlogApiItem {
+	log.Println("api call start")
+
 	var targetList []DTO.NaverBlogApiItem
 	onedaysAgo := time.Now().AddDate(0, 0, -1) //.Format("2006-01-02")
 	var bloglist DTO.NaverBlogApiStruct
@@ -157,6 +158,7 @@ func CallNaverAPI(apiURL string, keyword string) []DTO.NaverBlogApiItem {
 		}
 		start += 100
 	}
+	log.Println("api call end")
 
 	return targetList
 

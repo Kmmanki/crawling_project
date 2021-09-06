@@ -11,7 +11,7 @@ import (
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 )
 
-func EsPut(result DTO.Scrap_result) {
+func EsPut(result DTO.Scrap_result) int {
 	es, err := elasticsearch.NewDefaultClient()
 	// Build the request body.
 	var b strings.Builder
@@ -53,6 +53,8 @@ func EsPut(result DTO.Scrap_result) {
 	res, err := req.Do(context.Background(), es)
 	if err != nil {
 		log.Fatalf("Error getting response: %s", err)
+		res.Body.Close()
+
 	}
 	defer res.Body.Close()
 
@@ -60,6 +62,7 @@ func EsPut(result DTO.Scrap_result) {
 		log.Printf("[%s] Error indexing document", res.Status())
 		log.Println("ReqBody: ", strings.NewReader(b.String()))
 		log.Println("RespBody: ", res.Body)
+		return 0
 	} else {
 		// Deserialize the response into a map.
 		var r map[string]interface{}
@@ -69,5 +72,6 @@ func EsPut(result DTO.Scrap_result) {
 			// Print the response status and indexed document version.
 			log.Printf("[%s] %s; version=%d", res.Status(), r["result"], int(r["_version"].(float64)))
 		}
+		return 1
 	}
 }
