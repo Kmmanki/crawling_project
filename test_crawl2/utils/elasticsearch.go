@@ -9,12 +9,16 @@ import (
 
 	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
+	"golang.org/x/net/html/charset"
 )
 
 func EsPut(result DTO.Scrap_result) int {
 	es, err := elasticsearch.NewDefaultClient()
 	// Build the request body.
 	var b strings.Builder
+	if len(result.Content) >= 10000 {
+		result.Content = result.Content[0:10000]
+	}
 
 	b.WriteString(`{`)
 	b.WriteString(`"Title" : "`)
@@ -42,13 +46,13 @@ func EsPut(result DTO.Scrap_result) int {
 	b.WriteString(`"}`)
 
 	// Set up the request object.
+	body, _ := charset.NewReader(strings.NewReader(b.String()), "UTF-8")
 	req := esapi.IndexRequest{
 		Index:      "naver_scraper",
 		DocumentID: result.ScrapId,
-		Body:       strings.NewReader(b.String()),
+		Body:       body,
 		Refresh:    "true",
 	}
-
 	// Perform the request with the client.
 	res, err := req.Do(context.Background(), es)
 	if err != nil {
@@ -60,11 +64,21 @@ func EsPut(result DTO.Scrap_result) int {
 
 	if res.IsError() {
 		log.Printf("[%s] Error indexing document", res.Status())
-		log.Println("ReqBody: ", strings.NewReader(b.String()))
-		log.Println("RespBody: ", res.Body)
+		log.Println("url: ", result.Link)
+		// fmt.Println(b.String())
+		// log.Println("ReqBody: ", strings.NewReader(b.String()))
+		// log.Fatal(len(result.Content))
+		log.Fatalln("RespBody: ", res.String())
+
+		// log.Println("RespBody: ", strings.NewReader(res.Body))
+
 		return 0
 	} else {
 		// Deserialize the response into a map.
+		// log.Fatalln("sssss", strings.NewReader(b.String()))
+		// fmt.Println(b.String())
+		// log.Fatalln()
+
 		var r map[string]interface{}
 		if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
 			log.Printf("Error parsing the response body: %s", err)

@@ -7,4 +7,5 @@ require (
 	github.com/elastic/go-elasticsearch/v8 v8.0.0-20210823151005-3b1f3aef208c // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 )

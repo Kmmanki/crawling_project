@@ -50,7 +50,7 @@ func main() {
 	for i := 0; i < len(targetList); i++ {
 		result := <-ch
 
-		var re = regexp.MustCompile(`["']`)                      //따옴표가 존재 할 시 Joson 구조 만드는데 문제가 생김 추후 html 태그 등을 처리하는 정규식이 필요해 보임
+		var re = regexp.MustCompile(`[^가-힣 A-z0-9]`)             //따옴표가 존재 할 시 Joson 구조 만드는데 문제가 생김 추후 html 태그 등을 처리하는 정규식이 필요해 보임
 		result.Content = re.ReplaceAllString(result.Content, ``) //Content에서 정규식 사용
 		result.Title = re.ReplaceAllString(result.Title, ``)     // Title에서 정규식 사용
 
