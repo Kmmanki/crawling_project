@@ -49,7 +49,9 @@ func main() {
 	putCount := 0
 	for i := 0; i < len(targetList); i++ {
 		result := <-ch
-
+		if result.ScrapId == "false" {
+			continue
+		}
 		var re = regexp.MustCompile(`[^가-힣 A-z0-9]`)             //따옴표가 존재 할 시 Joson 구조 만드는데 문제가 생김 추후 html 태그 등을 처리하는 정규식이 필요해 보임
 		result.Content = re.ReplaceAllString(result.Content, ``) //Content에서 정규식 사용
 		result.Title = re.ReplaceAllString(result.Title, ``)     // Title에서 정규식 사용
@@ -64,6 +66,9 @@ func main() {
 func crawlBlog(target DTO.NaverBlogApiItem, ch chan<- DTO.Scrap_result) {
 	url := target.Link
 	if !strings.Contains(url, "blog.naver") {
+		ch <- DTO.Scrap_result{Title: target.Title, Link: target.Link, Content: "false",
+			CustomPostDate: target.CustomPostDate,
+			ScrapDate:      time.Now(), ScrapId: "false"}
 		return
 	}
 	iframeSrc := getIframeURL(url)
@@ -72,11 +77,14 @@ func crawlBlog(target DTO.NaverBlogApiItem, ch chan<- DTO.Scrap_result) {
 	statusCodeChecker(resp, "크롤링 블로그", url)
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
+
 	defer resp.Body.Close()
 	utils.ErrChecker(err)
 
 	content := doc.Find(".se-main-container  .se-text-paragraph").Text() // Document에서 Content에 관련된 Class를 찾아내고 Text를 로드
-
+	if content == "" {
+		content = doc.Find("#postViewArea").Text()
+	}
 	// Title과 PostDate를 사용한 MD5해쉬를 사용, 추후 엘라스틱에 있는 글이라면 넣지 않는 방향으로 진행 해야함.
 	scrapId := utils.GetMD5Hash(target.Title, target.CustomPostDate.Format("2006-01-02 15:04:05"))
 
